@@ -11,10 +11,12 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 
 def process_file(input_path, output_path, remove_duplicates, email_to_user):
-    results = []
+    seen = set() if remove_duplicates else None
 
-    with open(input_path, "r", encoding="utf-8", errors="ignore") as f:
-        for line in f:
+    with open(input_path, "r", encoding="utf-8", errors="ignore") as infile, \
+         open(output_path, "w", encoding="utf-8") as outfile:
+
+        for line in infile:
             line = line.strip()
             if not line:
                 continue
@@ -23,7 +25,7 @@ def process_file(input_path, output_path, remove_duplicates, email_to_user):
             if len(parts) < 2:
                 continue
 
-            # case: link:user:pass
+            # link:user:pass
             if len(parts) >= 3:
                 user = parts[1]
                 password = parts[2]
@@ -33,16 +35,16 @@ def process_file(input_path, output_path, remove_duplicates, email_to_user):
 
             # email -> user
             if email_to_user and "@" in user:
-                user = user.split("@")[0]
+                user = user.split("@", 1)[0]
 
-            results.append(f"{user}:{password}")
+            result = f"{user}:{password}"
 
-    if remove_duplicates:
-        results = list(set(results))
+            if remove_duplicates:
+                if result in seen:
+                    continue
+                seen.add(result)
 
-    with open(output_path, "w", encoding="utf-8") as f:
-        for item in results:
-            f.write(item + "\n")
+            outfile.write(result + "\n")
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -73,62 +75,39 @@ def index():
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Extractor Tool</title>
-    <style>
-        body {
-            background:#f4f6f8;
-            font-family: Arial;
-        }
-        .box {
-            width:400px;
-            margin:80px auto;
-            background:white;
-            padding:25px;
-            border-radius:8px;
-            box-shadow:0 0 10px rgba(0,0,0,0.1);
-        }
-        h2 {
-            text-align:center;
-        }
-        button {
-            width:100%;
-            padding:10px;
-            background:#007bff;
-            color:white;
-            border:none;
-            border-radius:5px;
-            cursor:pointer;
-        }
-        button:hover {
-            background:#0056b3;
-        }
-    </style>
+<title>Extractor Tool</title>
+<style>
+body{background:#f4f6f8;font-family:Arial}
+.box{width:420px;margin:80px auto;background:#fff;padding:25px;
+border-radius:8px;box-shadow:0 0 10px rgba(0,0,0,.1)}
+button{width:100%;padding:10px;background:#007bff;color:#fff;
+border:none;border-radius:5px}
+</style>
 </head>
 <body>
-    <div class="box">
-        <h2>User:Pass Extractor</h2>
-        <form method="POST" enctype="multipart/form-data">
-            <input type="file" name="file" required><br><br>
+<div class="box">
+<h2>User:Pass Extractor</h2>
+<form method="POST" enctype="multipart/form-data">
+<input type="file" name="file" required><br><br>
 
-            <label>
-                <input type="checkbox" name="remove_duplicates" checked>
-                Remove Duplicates
-            </label><br><br>
+<label>
+<input type="checkbox" name="remove_duplicates" checked>
+Remove Duplicates (RAM heavy)
+</label><br><br>
 
-            <label>
-                <input type="checkbox" name="email_to_user">
-                Convert Email → User
-            </label><br><br>
+<label>
+<input type="checkbox" name="email_to_user">
+Email → User
+</label><br><br>
 
-            <button type="submit">Process & Download</button>
-        </form>
-    </div>
+<button type="submit">Process & Download</button>
+</form>
+</div>
 </body>
 </html>
 """
 
 
 if __name__ == "__main__":
-    import os
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
